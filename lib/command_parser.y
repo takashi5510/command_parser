@@ -1,6 +1,9 @@
 class CommandParser
 
 rule
+  # TODO: char以外のスペースを破棄したい（出現パターンの洗い出し）
+  #       num前後、funcの先頭、スペース連続
+  # TODO: charでは、ダブルクォーテーション/カンマ以外の記号も許可
   line  : func '(' args ')'   { result = val }
   func  : IDENT ':' ':' IDENT { result = val }
   args  : arg                 { result = val }
@@ -9,7 +12,15 @@ rule
   arg   : str
         | num
         | ary
-  str   : STRING
+        | ' '                 { result = nil }
+  str   : '"' chars '"'       { result = val[1] }
+        | '"' num '"'         { result = val[1].to_s }
+  chars : char                { result = val[0] }
+        | chars char          { result += val[1] }
+  char  : IDENT
+        | '\\' '"'            { result = val[1] }
+        | '\\' ','            { result = val[1] }
+        | ' '
   num   : NUM                 { result = val[0].to_i }
   ary   : '[' items ']'       { result = val[1] }
   items : item                { result = val }
@@ -23,7 +34,7 @@ require 'strscan'
 
 ---- inner
 def parse(str)
-  @yydebug = true
+  #@yydebug = true
   s = StringScanner.new(str)
   @q = []
   until s.eos?
@@ -32,14 +43,8 @@ def parse(str)
     # TODO: 小数点対応
     when s.scan(/[1-9][0-9]*/)
       @q << [:NUM, s.matched]
-    # TODO: 引数内のスペースと\" \, 対応をparseで実施
-    # TODO: ruleで対応した方がよい？？？
-    when s.scan(/"(?:[\\"]|[\\,]|[^",])+"/)
-      @q << [:STRING, s.matched.gsub(/^\"|\"$/, '')]
     when s.scan(/\w+/)
       @q << [:IDENT, s.matched]
-    when s.scan(/\s/)
-      # 引数内のスペースがparseで対応済みのため、その他のスペースは無視
     when s.scan(/./)
       @q << [s.matched, s.matched]
     else
