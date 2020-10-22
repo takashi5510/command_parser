@@ -2,14 +2,14 @@ class CommandParser
 
 rule
   line  : func '(' args ')'   { result = val }
-  func  : IDENT ':' ':' IDENT { result = val.join }
+  func  : IDENT ':' ':' IDENT { result = val }
   args  : arg                 { result = val }
         | args ',' arg        { result << val[2] }
         | # nil
   arg   : str
         | num
         | ary
-  str   : '"' IDENT '"'       { result = val[1] }
+  str   : STRING
   num   : NUM                 { result = val[0].to_i }
   ary   : '[' items ']'       { result = val[1] }
   items : item                { result = val }
@@ -27,17 +27,21 @@ def parse(str)
   s = StringScanner.new(str)
   @q = []
   until s.eos?
-    # TODO: スペース未対応
-    # TODO: \, \" 未対応
     case
+    # TODO: 負の整数対応
+    # TODO: 小数点対応
     when s.scan(/[1-9][0-9]*/)
       @q << [:NUM, s.matched]
+    # TODO: 引数内のスペースと\" \, 対応をparseで実施
+    # TODO: ruleで対応した方がよい？？？
+    when s.scan(/"(?:[\\"]|[\\,]|[^",])+"/)
+      @q << [:STRING, s.matched.gsub(/^\"|\"$/, '')]
     when s.scan(/\w+/)
       @q << [:IDENT, s.matched]
+    when s.scan(/\s/)
+      # 引数内のスペースがparseで対応済みのため、その他のスペースは無視
     when s.scan(/./)
       @q << [s.matched, s.matched]
-    when s.scan(/$/)
-      @q << [:E, s.matched]
     else
       break
     end
